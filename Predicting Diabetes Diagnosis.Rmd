@@ -1,0 +1,105 @@
+---
+title: "Logistic Regression - Predicting Diabetes Diagnosis"
+author: "Adam Iravani"
+subtitle: "Date: May 17, 2021"
+output: html_document
+---
+## Data Cleaning/Preparation
+Data cleaning and preparation is an essential step of any data-driven analysis. After importing the diabetes.csv file, the new variable height.si was created by taking the values from the original height variable and multiplying by 0.0254. Next, the weight.si variable was also created by taking the values from the original weight variable and multiplying them by 0.453592. Using these new SI variables, the BMI variable was created using the following formula: BMI = weight.si/height.si^2. A new categorical variable bmi_categorized was also made to categorize the different BMI ranges into the following groups: underweight (BMI < 18.5), normal (BMI >= 18.5 & BMI <= 25), overweight (BMI > 25 & BMI <= 30), and obese (BMI > 30). All other values were made NA. 
+After creating the new variables, the insurance and smoking variables were recoded from numerical values into string values, where insurance values of 0 became 'none', 1 became 'government', and 2 became 'private', and smoking status of 1 became 'current', 2 became 'never', and 3 became 'ex-smoker'. Following the recodes, checks were completed to ensure that the changes worked as expected by viewing the columns. 
+```{r warning=FALSE, message=FALSE, results="hide"}
+#Import libraries
+library(ggplot2)
+library(dplyr)
+#Import dataset
+diabetes <- read.csv('diabetes.csv')
+#Create a variable called height.si that is the height variable converted to SI units by multiplying the height variable by 0.0254
+diabetes$height.si <- (diabetes$height*.0254)
+#Create a variable called weight.si that is the weight variable converted to SI units by multiplying the weight variable by 0.453592
+diabetes$weight.si <- (diabetes$weight*0.453592)
+#Using the new SI unit weight and height variables, calculate BMI using the following formula: BMI = weight.si/height.si^2
+diabetes$BMI <- (diabetes$weight.si / (diabetes$height.si)^2)
+#Create a categorical BMI variable named bmi_categorized using the following conditions: bmi < 18.5 = "underweight" bmi >= 18.5 & bmi <= 25 = "normal" bmi > 25 & bmi <= 30 = "overweight" bmi > 30 =  "obese" All other values = NA
+diabetes$bmi_categorized <- (diabetes$BMI)
+diabetes <- mutate(diabetes, bmi_categorized = ifelse(bmi_categorized < 18.5, "underweight",
+                                       ifelse(bmi_categorized >= 18.5 & bmi_categorized <= 25, "normal",
+                                       ifelse(bmi_categorized > 25 & bmi_categorized <= 30, "overweight",
+                                       ifelse(bmi_categorized > 30 , "obese",
+                                               NA)))))
+#Recode the insurance variable to reflect the value labels (0=none, 1=government, 2=private)
+diabetes <- mutate(diabetes, insurance = ifelse(insurance == 0, "none",
+                                       ifelse(insurance == 1, "government",
+                                       ifelse(insurance == 2, "private",
+                                               NA))))
+#Recode the smoking variable to reflect the value labels (1=current, 2=never and 3=ex-smoker)
+diabetes <- mutate(diabetes, smoking = ifelse(smoking == 1, "current",
+                                       ifelse(smoking == 2, "never",
+                                       ifelse(smoking == 3, "ex-smoker",
+                                               NA))))
+#Include checks that show each of the new/recoded variables have been correctly coded
+diabetes[,c("bmi_categorized","insurance","smoking")]
+
+
+```
+
+
+## Exploratory Data Analysis
+In total, there are 403 observations in this dataset, with an average of age 47 years old, and an average BMI of 28.8 placing the average participant in the overweight category. This dataset is primarily female, who compromise 58.06% of the participants. Overall, just 28.46% of the participants have a normal BMI and 38.29% have a BMI that qualifying as obese. Diabetes is prevalent in 15.38% of the participants.
+```{r warning=FALSE, message=FALSE, results="hide"}
+#Find the number of observations
+(nrow(diabetes))
+#Find the percentage of observations in each bmi_categorized category
+round(prop.table(table(diabetes$bmi_categorized))*100,2)
+#Find the percentage of observations in each gender category
+round(prop.table(table(diabetes$gender))*100,2)
+#Find the percentage of observations in each diabetes category
+round(prop.table(table(diabetes$dm))*100,2)
+#Find the average age of individuals in the dataset
+(mean(diabetes$age))
+#Find the average BMI of individuals in the dataset
+(mean(diabetes$BMI, na.rm = TRUE))
+```
+
+
+## Data Visualization
+In this step of the analysis, four graphs were constructed. The first graph, Figure 1, is a bar graph with the distributions of the three insurance types. From the graph, its evident that government insurance is the largest group, followed by private and no insurance. 
+Figure 2 is another bar graph that plots the participants' smoking status. Never smoked is the largest group, which is roughly the size of current smokers and ex-smokers combined, and the group for current smokers is roughly double the size of ex-smokers.
+Figure 3 is a scatter plot which maps the relationship between BMI and cholesterol levels in the blood. The regression line and correlation coefficient of 0.086 indicate a loose positive correlation between BMI and cholesterol levels in the blood. This means that as BMI increases, cholesterol levels slightly increase as well.
+Finally, Figure 4 presents a histogram with the distribution of age in years using a bindwidth of five. The data is unimodal with a mode of 40, and skews right which means that most of the participants are under the age of 65.
+```{r warning=FALSE, message=FALSE}
+#frequency of each labeled category of the insurance variable
+insurance <- ggplot(data=diabetes) + aes(x=insurance) + geom_bar(fill="blue", color="purple") +
+  labs(title="Figure 1: Frequency of Insurance Types",x="Types of Insurance", y = "Number of People") + theme(plot.title = element_text(hjust = 0.5))
+insurance
+
+#frequency of each labeled category of the smoking variable
+smoking <- ggplot(data=diabetes) + aes(x=smoking) + geom_bar(fill="blue", color="purple") +
+  labs(title="Figure 2: Frequency of Smoking Status",x="Type of Smoker", y = "Number of People") + theme(plot.title = element_text(hjust = 0.5))
+smoking
+
+#relationship between BMI (independent variable) and cholesterol (dependent variable)
+BMI <- ggplot(data=diabetes, aes(x = BMI, y = chol)) + geom_point() + geom_smooth(method="lm") + labs(title="Figure 3: Relationship between BMI and Cholesterol Levels",x="Body Mass Index", y = "Cholesterol levels in blood")
+BMI
+#Calculate the correlation coefficient
+cor.test(diabetes$BMI, diabetes$chol, method = "pearson", conf.level = 0.95)
+
+#Create a histogram of the age variable, using a binwidth of 5
+age <- ggplot(data=diabetes) + aes(x=age) +  geom_histogram(binwidth =5, fill="blue", color="purple") +
+  labs(title="Figure 4: Distribution of Age",x="Age (In Years)",y="Number of people") + theme(plot.title = element_text(hjust = .5))
+age
+
+```
+
+## Logistic Regression Results
+A logistic regression model was carried out using diabetes(dm) as the outcome variable, and age, BMI, and gender(factored) as the predictors. 
+
+Based on the model, a 1-year increase in age causes the log odds of having diabetes to increase by 0.06, holding the other independent variables constant. For body mass index, a 1-unit increase in BMI causes the log odds of having diabetes to increase by 0.07, holding the other independent variables constant. And finally, for gender, being male as opposed to female increases the log odds of having diabetes by .24, holding the other independent variables constant.
+
+Since the p-value for age is less than alpha, 0.05, we can conclude that the predictor age is significantly is associated with an individual having diabetes. Next, since the p-value for BMI is also less than alpha, 0.05, we can conclude that the predictor BMI is significantly associated with an individual having diabetes. Finally, since the p-value for gender is greater than alpha, 0.05, we can conclude that gender is not significantly associated with an individual having diabetes and further research is needed to understand the interaction between gender and diabetes.
+
+```{r warning=FALSE, message=FALSE, results="hide"}
+# insert logistic regression code
+logistic_regression <- glm(dm ~ age + BMI + factor(gender), data = diabetes, family = "binomial")
+summary(logistic_regression)
+```
+
